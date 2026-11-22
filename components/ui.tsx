@@ -5,14 +5,14 @@ import { IconChevronLeft, IconClose, IconPlus } from './icons';
 
 /** Class standar untuk <input>/<select>. text-base (16px) mencegah auto-zoom di iPhone. */
 export const inputClass =
-  'min-h-12 w-full rounded-lg border border-[#cbd0ca] bg-surface px-3.5 text-base outline-none focus:border-brand';
+  'min-h-12 w-full rounded-lg border border-line-strong bg-surface px-3.5 text-base outline-none focus:border-brand';
 
 export const primaryButton =
-  'min-h-12 rounded-lg bg-brand px-4 font-semibold text-white hover:bg-brand-dark disabled:opacity-60';
+  'min-h-12 rounded-lg bg-brand px-4 font-medium text-white transition-colors hover:bg-brand-dark disabled:opacity-60';
 
 export function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1.5 text-sm font-semibold">
+    <label className="flex flex-col gap-1.5 text-sm font-medium">
       {label}
       {children}
     </label>
@@ -60,11 +60,11 @@ export function PageHeader({
       <div className="flex items-center gap-1">
         {backHref && (
           <Link href={backHref} aria-label="Kembali" className="-ml-3 flex size-11 items-center justify-center md:hidden">
-            <IconChevronLeft size={22} />
+            <IconChevronLeft size={20} />
           </Link>
         )}
         <div className="flex flex-col gap-1">
-          <h1 className="font-display text-[26px] font-bold tracking-tight md:text-3xl">{title}</h1>
+          <h1 className="font-display text-2xl font-medium md:text-3xl">{title}</h1>
           {subtitle && <p className="text-sm text-muted md:text-base">{subtitle}</p>}
         </div>
       </div>
@@ -74,7 +74,7 @@ export function PageHeader({
           type="button"
           onClick={onAdd}
           aria-label={addLabel ?? 'Tambah'}
-          className="flex size-11 items-center justify-center rounded-xl border border-[#cbd0ca] bg-surface md:hidden"
+          className="flex size-11 items-center justify-center rounded-xl border border-line-strong bg-surface md:hidden"
         >
           <IconPlus />
         </button>
@@ -117,16 +117,16 @@ export function FormPanel({
           highlight ? 'md:border-2 md:border-brand' : 'md:border-line'
         }`}
       >
-        <div aria-hidden="true" className="mx-auto h-1.5 w-10 rounded-full bg-[#cbd0ca] md:hidden" />
+        <div aria-hidden="true" className="mx-auto h-1.5 w-10 rounded-full bg-line-strong md:hidden" />
         <div className="flex items-center justify-between gap-2">
-          <h2 className="font-display text-xl font-semibold">{title}</h2>
+          <h2 className="font-display text-xl font-medium">{title}</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Tutup"
             className={`flex size-11 items-center justify-center ${desktopAlways ? 'md:hidden' : ''}`}
           >
-            <IconClose size={18} />
+            <IconClose size={20} />
           </button>
         </div>
         {children}
@@ -142,9 +142,9 @@ export function Fab({ onClick, label }: { onClick: () => void; label: string }) 
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="fixed right-4 bottom-24 z-30 flex size-14 items-center justify-center rounded-[18px] bg-brand text-white shadow-[0_6px_16px_rgba(15,107,92,0.35)] md:hidden"
+      className="fixed right-4 bottom-24 z-30 flex size-14 items-center justify-center rounded-2xl bg-brand text-white shadow-[0_8px_24px_rgba(20,23,26,0.16)] md:hidden"
     >
-      <IconPlus size={24} />
+      <IconPlus size={20} />
     </button>
   );
 }

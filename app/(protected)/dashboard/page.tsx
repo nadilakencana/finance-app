@@ -2,127 +2,124 @@
 
 import Link from 'next/link';
 import { useApi } from '@/lib/use-api';
-import { formatRupiah, formatTanggal } from '@/lib/format';
-import type { DashboardSummary, Transaction } from '@/lib/types';
+import { useAuth } from '@/lib/auth-context';
+import type { DashboardSummary, FixedCost, GoldAsset, GoldPrices, Transaction } from '@/lib/types';
 import { IconPlus } from '@/components/icons';
-import { EmptyState, ErrorBox, Loading } from '@/components/ui';
+import { ErrorBox, Loading } from '@/components/ui';
+import {
+  BalanceCard,
+  BillCalendar,
+  BillsCard,
+  CashFlowCard,
+  GoldCard,
+  MonthSummaryCard,
+  PocketRings,
+  RecentTransactionsCard,
+  WeeklySpendCard,
+} from './widgets';
 
 function formatHariIni() {
   return new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 }
 
+/*
+ * Tata letak (urutan diatur dengan `order`, kolom pembungkus jadi `contents` di layar kecil):
+ * - HP (1 kolom):  saldo, kantong, arus kas, pengeluaran, tagihan, kalender, ringkasan, transaksi, emas
+ * - md–xl (2 kolom): kantong, saldo | emas, arus kas, pengeluaran | tagihan, kalender | ringkasan, transaksi
+ * - 2xl (3 kolom seperti contoh): [saldo, emas] [kantong, arus kas, pengeluaran+tagihan, transaksi] [kalender, ringkasan]
+ */
 export default function DashboardPage() {
-  const { data, error, loading } = useApi<DashboardSummary>('/dashboard/summary');
+  const { user } = useAuth();
+  const summary = useApi<DashboardSummary>('/dashboard/summary');
+  const transactions = useApi<Transaction[]>('/transactions');
+  const bills = useApi<FixedCost[]>('/fixed-costs');
+  const gold = useApi<GoldAsset[]>('/gold-assets');
+  const goldPrices = useApi<GoldPrices>('/gold-prices');
 
-  if (loading) return <Loading />;
-  if (error || !data) return <ErrorBox message={error ?? 'Gagal memuat dashboard'} />;
+  if (summary.loading) return <Loading />;
+  if (summary.error || !summary.data) return <ErrorBox message={summary.error ?? 'Gagal memuat dashboard'} />;
 
-  const pocketTotal = data.pockets.reduce((sum, p) => sum + p.currentAmount, 0);
+  const data = summary.data;
+  const txs = transactions.data ?? [];
+  const billList = bills.data ?? [];
+  const initial = user?.email.charAt(0).toUpperCase() ?? '?';
 
   return (
     <>
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <span className="text-sm text-muted">{formatHariIni()}</span>
-          <h1 className="font-display text-[26px] font-bold tracking-tight md:text-3xl">Dashboard</h1>
+      <header className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="truncate text-sm text-muted">{formatHariIni()}</span>
+          <h1 className="font-display text-2xl font-medium md:text-3xl">Dashboard</h1>
         </div>
-        <Link href="/transactions" className="flex min-h-11 items-center gap-2 rounded-lg bg-brand px-4 font-semibold text-white hover:bg-brand-dark">
-          <IconPlus size={18} />
-          Catat Transaksi
-        </Link>
+        <div className="flex shrink-0 items-center gap-3">
+          <Link
+            href="/transactions"
+            aria-label="Catat transaksi"
+            className="flex size-11 items-center justify-center gap-2 rounded-lg bg-brand font-medium text-white transition-colors hover:bg-brand-dark sm:w-auto sm:px-4"
+          >
+            <IconPlus size={20} />
+            <span className="hidden sm:inline">Catat transaksi</span>
+          </Link>
+          {/* HP: avatar membuka menu Lainnya. Desktop: info akun saja (menu ada di sidebar). */}
+          <Link href="/more" aria-label="Akun" className="flex size-11 items-center justify-center rounded-full bg-mint font-display text-lg font-medium text-ink md:hidden">
+            <span aria-hidden="true">{initial}</span>
+          </Link>
+          <div className="hidden items-center gap-3 md:flex">
+            <span aria-hidden="true" className="flex size-11 items-center justify-center rounded-full bg-mint font-display text-lg font-medium text-ink">
+              {initial}
+            </span>
+            <span className="hidden max-w-48 flex-col lg:flex">
+              <span className="truncate text-sm font-medium">{user?.email}</span>
+              <span className="text-xs text-muted">Pengguna</span>
+            </span>
+          </div>
+        </div>
       </header>
 
-      {/* Kartu ringkasan */}
-      <section className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
-        <StatCard wide dark label="Total saldo rekening" value={formatRupiah(data.totalBalance)} note={`dari ${data.accounts.length} rekening`} />
-        <StatCard label="Dana di kantong" value={formatRupiah(pocketTotal)} note={`${data.pockets.length} kantong`} />
-        <StatCard warn label="Tagihan belum lunas" value={formatRupiah(data.fixedCosts.unpaidAmount)} note={`${data.fixedCosts.unpaid} dari ${data.fixedCosts.total} tagihan`} />
-        <StatCard label="Emas" value={`${data.goldAssets.totalWeightGrams} gram`} note={`Modal ${formatRupiah(data.goldAssets.totalInvestment)}`} />
-      </section>
+      {transactions.error && <ErrorBox message={`Grafik tidak bisa dimuat: ${transactions.error}`} />}
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-4">
-        {/* Progres kantong */}
-        <section className="flex flex-col gap-5 rounded-2xl border border-line bg-surface p-6">
-          <h2 className="font-display text-xl font-semibold">Kantong</h2>
-          {data.pockets.length === 0 && <EmptyState>Belum ada kantong.</EmptyState>}
-          {data.pockets.map((p) => (
-            <div key={p.id} className="flex flex-col gap-2">
-              <div className="flex justify-between gap-3 text-[15px]">
-                <span className="font-semibold">{p.name}</span>
-                <span className="text-muted">
-                  {formatRupiah(p.currentAmount)} / {formatRupiah(p.targetAmount)}
-                </span>
-              </div>
-              <ProgressBar percent={p.progressPercent} label={p.name} />
-            </div>
-          ))}
-        </section>
+      <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 2xl:grid-cols-[320px_minmax(0,1fr)_320px]">
+        {/* Kolom kiri */}
+        <div className="contents 2xl:flex 2xl:flex-col 2xl:gap-4">
+          <div className="order-1 md:order-2 2xl:order-none">
+            <BalanceCard total={data.totalBalance} accounts={data.accounts} />
+          </div>
+          <div className="order-9 md:order-3 2xl:order-none">
+            <GoldCard gold={data.goldAssets} assets={gold.data ?? []} prices={goldPrices.data} />
+          </div>
+        </div>
 
-        {/* Rekening */}
-        <section className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-6">
-          <h2 className="font-display text-xl font-semibold">Rekening</h2>
-          {data.accounts.length === 0 && <EmptyState>Belum ada rekening.</EmptyState>}
-          {data.accounts.map((a) => (
-            <div key={a.id} className="flex justify-between border-b border-[#eef0ec] py-3 last:border-0">
-              <span className="font-semibold">{a.name}</span>
-              <span className="font-semibold">{formatRupiah(a.balance)}</span>
+        {/* Kolom tengah */}
+        <div className="contents 2xl:flex 2xl:flex-col 2xl:gap-4">
+          <div className="order-2 md:order-1 md:col-span-2 2xl:order-none">
+            <PocketRings pockets={data.pockets} />
+          </div>
+          <div className="order-3 md:order-4 md:col-span-2 2xl:order-none">
+            <CashFlowCard transactions={txs} />
+          </div>
+          <div className="contents 2xl:grid 2xl:grid-cols-2 2xl:items-start 2xl:gap-4">
+            <div className="order-4 md:order-5 2xl:order-none">
+              <WeeklySpendCard transactions={txs} />
             </div>
-          ))}
-        </section>
+            <div className="order-5 md:order-6 2xl:order-none">
+              <BillsCard bills={billList} />
+            </div>
+          </div>
+          <div className="order-8 md:order-9 md:col-span-2 2xl:order-none">
+            <RecentTransactionsCard transactions={data.recentTransactions} />
+          </div>
+        </div>
+
+        {/* Kolom kanan */}
+        <div className="contents 2xl:flex 2xl:flex-col 2xl:gap-4">
+          <div className="order-6 md:order-7 2xl:order-none">
+            <BillCalendar bills={billList} />
+          </div>
+          <div className="order-7 md:order-8 2xl:order-none">
+            <MonthSummaryCard transactions={txs} />
+          </div>
+        </div>
       </div>
-
-      {/* Transaksi terbaru */}
-      <section className="flex flex-col rounded-2xl border border-line bg-surface p-6">
-        <h2 className="mb-2 font-display text-xl font-semibold">Transaksi terbaru</h2>
-        {data.recentTransactions.length === 0 && <EmptyState>Belum ada transaksi.</EmptyState>}
-        {data.recentTransactions.map((t) => (
-          <TransactionRow key={t.id} t={t} />
-        ))}
-      </section>
     </>
-  );
-}
-
-function StatCard({ label, value, note, dark, warn, wide }: { label: string; value: string; note: string; dark?: boolean; warn?: boolean; wide?: boolean }) {
-  const style = dark
-    ? 'bg-ink text-white'
-    : warn
-      ? 'bg-warn-soft text-warn-dark border border-[#f1d9bf]'
-      : 'bg-surface border border-line';
-  return (
-    <div className={`flex flex-col gap-1 rounded-2xl p-4 md:gap-2 md:p-5 ${wide ? 'col-span-2 lg:col-span-1' : ''} ${style}`}>
-      <span className="text-[13px] opacity-80">{label}</span>
-      <span className="font-display text-lg font-bold md:text-[28px]">{value}</span>
-      <span className="text-[13px] opacity-80">{note}</span>
-    </div>
-  );
-}
-
-function ProgressBar({ percent, label }: { percent: number; label: string }) {
-  const p = Math.min(100, Math.max(0, percent));
-  return (
-    <div role="progressbar" aria-label={`Progres ${label}`} aria-valuenow={p} aria-valuemin={0} aria-valuemax={100} className="h-2.5 overflow-hidden rounded-full bg-line">
-      <div className="h-full rounded-full bg-brand" style={{ width: `${p}%` }} />
-    </div>
-  );
-}
-
-function TransactionRow({ t }: { t: Transaction }) {
-  const sign = t.type === 'INCOME' ? '+ ' : t.type === 'EXPENSE' ? '− ' : '';
-  const color = t.type === 'INCOME' ? 'text-brand' : t.type === 'EXPENSE' ? 'text-warn' : 'text-ink';
-  const source = t.pocket?.name ?? t.account?.name ?? '-';
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#eef0ec] py-3">
-      <div className="flex flex-col">
-        <span className="font-semibold">{t.category}</span>
-        <span className="text-[13px] text-muted">
-          {source} · {formatTanggal(t.date)}
-        </span>
-      </div>
-      <span className={`font-bold ${color}`}>
-        {sign}
-        {formatRupiah(t.amount)}
-      </span>
-    </div>
   );
 }

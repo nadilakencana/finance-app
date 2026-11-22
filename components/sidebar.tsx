@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { LogoMark } from './logo';
 import { IconArrows, IconBank, IconCalendar, IconDashboard, IconGold, IconLogout, IconWallet } from './icons';
 
 const MENU = [
@@ -10,7 +11,7 @@ const MENU = [
   { href: '/accounts', label: 'Rekening', Icon: IconBank },
   { href: '/pockets', label: 'Kantong', Icon: IconWallet },
   { href: '/transactions', label: 'Transaksi', Icon: IconArrows },
-  { href: '/fixed-costs', label: 'Tagihan Rutin', Icon: IconCalendar },
+  { href: '/fixed-costs', label: 'Tagihan rutin', Icon: IconCalendar },
   { href: '/gold-assets', label: 'Emas', Icon: IconGold },
 ];
 
@@ -26,10 +27,13 @@ export function Sidebar() {
   }
 
   return (
-    <nav aria-label="Menu utama" className="hidden flex-[1_1_220px] flex-col gap-7 bg-ink px-4 py-6 text-[#e8eae6] md:flex">
-      <div className="flex items-center gap-2.5 px-2">
-        <div className="flex size-8 items-center justify-center rounded-[9px] bg-mint font-display text-lg font-bold text-ink">K</div>
-        <span className="font-display text-xl font-bold">Kantong</span>
+    <nav
+      aria-label="Menu utama"
+      className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-8 border-r border-line bg-surface px-4 py-6 md:flex"
+    >
+      <div className="flex items-center gap-2.5 px-3">
+        <LogoMark size={32} simple />
+        <span className="font-display text-xl font-semibold text-brand">Kantong</span>
       </div>
 
       <ul className="flex flex-col gap-1">
@@ -40,11 +44,11 @@ export function Sidebar() {
               <Link
                 href={href}
                 aria-current={active ? 'page' : undefined}
-                className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-[15px] ${
-                  active ? 'bg-ink-2 font-semibold text-white' : 'text-[#b9c0c6] hover:text-white'
+                className={`flex min-h-10 items-center gap-3 rounded-lg px-3 text-[15px] transition-colors ${
+                  active ? 'bg-brand font-medium text-white' : 'text-muted hover:bg-raised hover:text-ink'
                 }`}
               >
-                <Icon />
+                <Icon size={20} />
                 {label}
               </Link>
             </li>
@@ -52,11 +56,14 @@ export function Sidebar() {
         })}
       </ul>
 
-      <div className="mt-auto flex flex-col gap-2 border-t border-[#2e343a] px-2 pt-4">
-        <span className="text-[13px] text-[#9aa3ab]">Masuk sebagai</span>
-        <span className="truncate text-sm font-semibold">{user?.email}</span>
-        <button onClick={handleLogout} className="flex min-h-11 items-center gap-2.5 text-left text-sm text-[#b9c0c6] hover:text-white">
-          <IconLogout size={18} />
+      <div className="mt-auto flex flex-col gap-1 rounded-xl bg-brand-soft p-4">
+        <span className="text-xs text-brand-dark">Masuk sebagai</span>
+        <span className="truncate text-sm font-medium">{user?.email}</span>
+        <button
+          onClick={handleLogout}
+          className="mt-2 flex min-h-10 items-center justify-center gap-2 rounded-lg bg-surface text-sm font-medium text-warn-dark transition-colors hover:bg-warn-soft"
+        >
+          <IconLogout size={16} />
           Keluar
         </button>
       </div>

@@ -1,12 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { useApi } from '@/lib/use-api';
 import { formatRupiah } from '@/lib/format';
 import type { Account } from '@/lib/types';
-import { IconTrash } from '@/components/icons';
+import { IconFilter, IconLayers, IconTrash } from '@/components/icons';
+import { FilterSelect, GroupHeading, ListToolbar, NoResults, SearchBox, groupItems, matchesQuery } from '@/components/list-tools';
+import { ACCOUNT_KINDS, accountKind } from '@/lib/categories';
+import { useConfirm, useToast } from '@/components/feedback';
 import { EmptyState, ErrorBox, Field, FormPanel, Loading, PageHeader, inputClass, primaryButton } from '@/components/ui';
 
 function initials(name: string) {
@@ -23,12 +26,43 @@ export default function AccountsPage() {
   const [editing, setEditing] = useState<Account | null>(null);
   const [open, setOpen] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+  const confirm = useConfirm();
+  const toast = useToast();
+
+  const [query, setQuery] = useState('');
+  const [kind, setKind] = useState('all');
+  const [balanceFilter, setBalanceFilter] = useState('all');
+  const [sort, setSort] = useState('name');
+  const [groupBy, setGroupBy] = useState('kind');
+
+  const list = useMemo(() => accounts.data ?? [], [accounts.data]);
+  const filtered = useMemo(() => {
+    const result = list.filter(
+      (a) =>
+        matchesQuery(query, a.name, accountKind(a.name)) &&
+        (kind === 'all' || accountKind(a.name) === kind) &&
+        (balanceFilter === 'all' || (balanceFilter === 'filled' ? a.balance > 0 : a.balance <= 0)),
+    );
+    return result.sort((a, b) =>
+      sort === 'high' ? b.balance - a.balance : sort === 'low' ? a.balance - b.balance : a.name.localeCompare(b.name, 'id'),
+    );
+  }, [list, query, kind, balanceFilter, sort]);
+  const groups = useMemo(
+    () =>
+      groupBy === 'kind' ? groupItems(filtered, (a) => accountKind(a.name), [...ACCOUNT_KINDS]) : [['', filtered] as [string, Account[]]],
+    [filtered, groupBy],
+  );
 
   if (accounts.loading) return <Loading />;
   if (accounts.error) return <ErrorBox message={accounts.error} />;
 
-  const list = accounts.data ?? [];
   const total = list.reduce((s, a) => s + a.balance, 0);
+  const filterActive = query !== '' || kind !== 'all' || balanceFilter !== 'all';
+  function resetFilters() {
+    setQuery('');
+    setKind('all');
+    setBalanceFilter('all');
+  }
 
   function startCreate() {
     setEditing(null);
@@ -37,13 +71,19 @@ export default function AccountsPage() {
 
   async function handleDelete(a: Account) {
     // Transaksinya tidak ikut terhapus: Prisma mengosongkan accountId-nya (onDelete default = SetNull)
-    if (!confirm(`Hapus rekening "${a.name}"? Riwayat transaksinya tetap ada, tapi tidak lagi terhubung ke rekening ini.`)) return;
+    const ok = await confirm({
+      title: `Hapus rekening "${a.name}"?`,
+      message: 'Riwayat transaksinya tetap ada, tapi tidak lagi terhubung ke rekening ini.',
+      confirmLabel: 'Hapus rekening',
+    });
+    if (!ok) return;
     setListError(null);
     try {
       await api.delete(`/account/${a.id}`);
       accounts.reload();
+      toast(`Rekening "${a.name}" dihapus`);
     } catch (err) {
-      setListError(err instanceof Error ? `Gagal menghapus: ${err.message}` : 'Gagal menghapus');
+      toast(err instanceof Error ? `Gagal menghapus: ${err.message}` : 'Gagal menghapus', 'error');
     }
   }
 
@@ -64,47 +104,110 @@ export default function AccountsPage() {
       <ErrorBox message={listError} />
 
       <div className="flex flex-wrap items-start gap-4">
-        <section aria-label="Daftar rekening" className="grid min-w-0 flex-[999_1_420px] grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3 md:gap-4">
-          {list.length === 0 && <EmptyState>Belum ada rekening. Tambahkan rekening bank atau e-wallet pertamamu.</EmptyState>}
-          {list.map((a) => (
-            <article key={a.id} className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-4 md:p-5">
-              <div className="flex items-center gap-3">
-                <div aria-hidden="true" className="flex size-11 items-center justify-center rounded-xl bg-brand-soft font-bold text-brand">
-                  {initials(a.name)}
-                </div>
-                <h2 className="text-[17px] font-semibold">{a.name}</h2>
+        <section aria-label="Daftar rekening" className="flex min-w-0 flex-[999_1_420px] flex-col gap-5">
+          {list.length === 0 ? (
+            <EmptyState>Belum ada rekening. Tambahkan rekening bank atau e-wallet pertamamu.</EmptyState>
+          ) : (
+            <ListToolbar
+              search={<SearchBox value={query} onChange={setQuery} placeholder="Cari rekening" />}
+              shown={filtered.length}
+              total={list.length}
+              noun="rekening"
+              active={filterActive}
+              onReset={resetFilters}
+            >
+              <FilterSelect
+                label="Jenis"
+                icon={<IconFilter size={16} />}
+                value={kind}
+                onChange={setKind}
+                options={[{ value: 'all', label: 'Semua' }, ...ACCOUNT_KINDS.map((k) => ({ value: k, label: k }))]}
+              />
+              <FilterSelect
+                label="Saldo"
+                value={balanceFilter}
+                onChange={setBalanceFilter}
+                options={[
+                  { value: 'all', label: 'Semua' },
+                  { value: 'filled', label: 'Ada saldo' },
+                  { value: 'empty', label: 'Kosong' },
+                ]}
+              />
+              <FilterSelect
+                label="Urutkan"
+                value={sort}
+                onChange={setSort}
+                options={[
+                  { value: 'name', label: 'Nama A–Z' },
+                  { value: 'high', label: 'Saldo terbesar' },
+                  { value: 'low', label: 'Saldo terkecil' },
+                ]}
+              />
+              <FilterSelect
+                label="Kelompokkan"
+                icon={<IconLayers size={16} />}
+                value={groupBy}
+                onChange={setGroupBy}
+                options={[
+                  { value: 'kind', label: 'Jenis' },
+                  { value: 'none', label: 'Tidak' },
+                ]}
+              />
+            </ListToolbar>
+          )}
+          {list.length > 0 && filtered.length === 0 && <NoResults onReset={resetFilters} />}
+          {groups.map(([group, items]) => (
+            <div key={group || 'all'} className="flex flex-col gap-3">
+              {group && <GroupHeading title={group} count={items.length} aside={formatRupiah(items.reduce((s, a) => s + a.balance, 0))} />}
+              <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3 md:gap-4">
+                {items.map((a) => (
+                  <article key={a.id} className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-4 md:p-5">
+                    <div className="flex items-center gap-3">
+                      <div
+                        aria-hidden="true"
+                        className="flex size-11 items-center justify-center rounded-xl bg-raised font-medium text-ink-2"
+                      >
+                        {initials(a.name)}
+                      </div>
+                      <div className="flex min-w-0 flex-col">
+                        <h2 className="truncate text-lg font-medium">{a.name}</h2>
+                        <span className="text-xs text-muted">{accountKind(a.name)}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[13px] text-muted">Saldo</div>
+                      <div className="font-display text-2xl font-medium md:text-2xl">{formatRupiah(a.balance)}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Link
+                        href={`/transactions?accountId=${a.id}`}
+                        className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-raised text-sm font-medium"
+                      >
+                        Riwayat
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditing(a);
+                          setOpen(true);
+                        }}
+                        className="min-h-11 flex-1 rounded-lg border border-line-strong bg-surface text-sm font-medium"
+                      >
+                        Ubah
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(a)}
+                        aria-label={`Hapus ${a.name}`}
+                        className="flex size-11 items-center justify-center rounded-lg border border-line-strong bg-surface text-warn"
+                      >
+                        <IconTrash size={20} />
+                      </button>
+                    </div>
+                  </article>
+                ))}
               </div>
-              <div>
-                <div className="text-[13px] text-muted">Saldo</div>
-                <div className="font-display text-2xl font-bold md:text-[26px]">{formatRupiah(a.balance)}</div>
-              </div>
-              <div className="flex gap-2">
-                <Link
-                  href={`/transactions?accountId=${a.id}`}
-                  className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-[#f0f2ee] text-sm font-semibold"
-                >
-                  Riwayat
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditing(a);
-                    setOpen(true);
-                  }}
-                  className="min-h-11 flex-1 rounded-lg border border-[#cbd0ca] bg-surface text-sm font-semibold"
-                >
-                  Ubah
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(a)}
-                  aria-label={`Hapus ${a.name}`}
-                  className="flex size-11 items-center justify-center rounded-lg border border-[#cbd0ca] bg-surface text-warn"
-                >
-                  <IconTrash size={18} />
-                </button>
-              </div>
-            </article>
+            </div>
           ))}
         </section>
 
@@ -117,6 +220,7 @@ export default function AccountsPage() {
             setEditing(null);
           }}
           onDone={() => {
+            toast(editing ? 'Perubahan rekening disimpan' : 'Rekening ditambahkan');
             setOpen(false);
             setEditing(null);
             accounts.reload();
@@ -148,7 +252,10 @@ function AccountForm({
     setError(null);
     setSaving(true);
     try {
-      const body = { name, ...(balance !== '' ? { balance: Number(balance) } : {}) };
+      const body = {
+        name,
+        ...(balance !== '' ? { balance: Number(balance) } : {}),
+      };
       if (account) await api.patch(`/account/${account.id}`, body);
       else await api.post('/account', body);
       setName('');
@@ -171,17 +278,32 @@ function AccountForm({
       onSubmit={handleSubmit}
     >
       <Field label="Nama rekening">
-        <input className={inputClass} required minLength={2} placeholder="mis. Bank Jago Utama" value={name} onChange={(e) => setName(e.target.value)} />
+        <input
+          className={inputClass}
+          required
+          minLength={2}
+          maxLength={60}
+          placeholder="mis. Bank Jago Utama"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
       </Field>
       <Field label={account ? 'Saldo' : 'Saldo awal (opsional)'}>
-        <input className={inputClass} type="number" inputMode="numeric" placeholder="0" value={balance} onChange={(e) => setBalance(e.target.value)} />
+        <input
+          className={inputClass}
+          type="number"
+          inputMode="numeric"
+          placeholder="0"
+          value={balance}
+          onChange={(e) => setBalance(e.target.value)}
+        />
       </Field>
       <ErrorBox message={error} />
       <button disabled={saving} className={primaryButton}>
         {saving ? 'Menyimpan…' : account ? 'Simpan perubahan' : 'Simpan rekening'}
       </button>
       {account && (
-        <button type="button" onClick={onClose} className="hidden min-h-11 text-sm font-semibold text-muted md:block">
+        <button type="button" onClick={onClose} className="hidden min-h-11 text-sm font-medium text-muted md:block">
           Batal
         </button>
       )}

@@ -40,6 +40,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     init();
   }, [loadProfile]);
 
+  // Logout / login di tab lain: token di localStorage berubah -> samakan tab ini
+  useEffect(() => {
+    function onStorage(e: StorageEvent) {
+      if (e.key !== TOKEN_KEY) return;
+      if (!e.newValue) setUser(null);
+      else loadProfile();
+    }
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [loadProfile]);
+
   const login = async (email: string, password: string) => {
     const res = await api.post<AuthResponse>('/auth/login', { email, password });
     localStorage.setItem(TOKEN_KEY, res.access_token);

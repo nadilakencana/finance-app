@@ -12,17 +12,98 @@
   --color-brand-dark: #0a4f44;
   --color-brand-soft: #e3f1ee;
   --color-mint: #5fd3b8;        /* logo */
+  --color-mint-soft: #b5e6d9;   /* batang grafik non-aktif */
   --color-warn: #a14a0b;        /* pengeluaran */
   --color-warn-dark: #7a3a0a;   /* teks di atas warn-soft */
   --color-warn-soft: #fbefe3;   /* tagihan belum lunas */
+  --color-warn-line: #f1d9bf;   /* border di atas warn-soft */
+  --color-warn-strong: #e2b98f; /* border tombol "belum lunas" / keluar */
+
+  /* Ramp netral tambahan (dulu ditulis langsung sebagai hex) */
+  --color-raised: #f0f2ee;      /* chip, tombol sekunder, kotak ikon */
+  --color-line-soft: #eef0ec;   /* garis antar baris list */
+  --color-line-strong: #cbd0ca; /* border input & tombol sekunder */
+  --color-on-ink: #e8eae6;      /* teks utama di sidebar gelap */
+  --color-on-ink-muted: #b9c0c6;/* teks sekunder di atas ink */
+  --color-ink-line: #2e343a;    /* garis di atas ink */
+
+  /* Satu kurva easing untuk semua transisi */
+  --default-transition-duration: 150ms;
+  --default-transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @theme inline {
-  --font-sans: var(--font-inter);
-  --font-display: var(--font-space-grotesk);
+  --font-sans: var(--font-jakarta);
+  --font-display: var(--font-jakarta); /* sama, dipertahankan agar class lama tetap jalan */
 }
 
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
+  /* Angka rupiah sejajar di kolom */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ring fokus untuk pengguna keyboard */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+/* Muncul: fade + naik sedikit (modal & toast) */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+.anim-pop {
+  animation: pop-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+dialog.anim-pop::backdrop {
+  animation: fade-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+/* Grafik dashboard: bergerak sekali saat halaman dimuat */
+@keyframes ring-fill {
+  from {
+    stroke-dashoffset: var(--ring-from);
+  }
+}
+.anim-ring {
+  animation: ring-fill 1100ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes draw-x {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+.anim-draw {
+  animation: draw-x 1200ms cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+@keyframes grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+.anim-grow {
+  transform-origin: bottom;
+  animation: grow-y 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.anim-fade {
+  animation: fade-in 400ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .anim-pop,
+  dialog.anim-pop::backdrop,
+  .anim-ring,
+  .anim-draw,
+  .anim-grow,
+  .anim-fade {
+    animation: none;
+  }
 }

@@ -80,8 +80,42 @@ export interface FixedCost {
 export interface GoldAsset {
   id: string;
   weightInGrams: number;
-  buyPrice: number; // harga per gram
+  buyPrice: number; // harga beli per gram (total = weightInGrams * buyPrice)
   purchaseDate: string;
+  store: string | null; // toko
+  brand: string; // jenis emas = nama vendor di daftar harga, mis. "ANTAM", "UBS"
+  serialNumber: string | null;
+  buybackPriceAtPurchase: number | null; // buyback per gram saat beli
+  goal: string | null; // status tabungan
+}
+
+/** Body POST /gold-assets (PATCH: semua opsional, teks boleh null untuk mengosongkan) */
+export interface GoldAssetInput {
+  weightInGrams: number;
+  buyPrice: number;
+  purchaseDate?: string; // "YYYY-MM-DD"
+  store?: string | null;
+  brand?: string;
+  serialNumber?: string | null;
+  buybackPriceAtPurchase?: number | null;
+  goal?: string | null;
+}
+
+/** GET /gold-prices — harga hari ini dari Galeri 24 (Pegadaian), di-cache backend 1 jam */
+export interface GoldBrandPrice {
+  brand: string;
+  updatedAt: string | null; // teks dari situs, mis. "Minggu, 22 November 2026"
+  sellPerGram: number | null;
+  buybackPerGram: number | null;
+  rows: { weight: number; sell: number; buyback: number }[];
+}
+
+export interface GoldPrices {
+  source: string;
+  sourceUrl: string;
+  fetchedAt: string;
+  stale: boolean; // true = situs sumber gagal diakses, ini harga terakhir yang berhasil diambil
+  brands: GoldBrandPrice[];
 }
 
 /** GET /gold-assets/summary */

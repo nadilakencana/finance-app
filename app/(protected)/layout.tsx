@@ -19,9 +19,9 @@ export default function ProtectedLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex min-h-screen flex-wrap">
+    <div className="flex min-h-screen">
       <Sidebar />
-      <main className="flex min-w-0 flex-[999_1_560px] flex-col gap-5 px-4 pt-6 pb-28 md:gap-7 md:px-12 md:pt-8 md:pb-12">
+      <main className="mx-auto flex w-full max-w-[1600px] min-w-0 flex-1 flex-col gap-5 px-4 pt-6 pb-28 md:gap-6 md:px-8 md:pt-8 md:pb-12">
         {children}
       </main>
       <BottomNav />
